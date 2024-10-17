@@ -77,16 +77,47 @@ public class OrderProcessor : IOrderManagementRepository
 
     public void CancelOrder(int userId, int orderId)
     {
-        if (orders.ContainsKey(userId) && orderId < orders[userId].Count)
+        using (var conn = DBConnUtil.GetDBConn(_connectionString))
         {
-            orders[userId].RemoveAt(orderId);
+            // First, check if the order belongs to the user
+            string checkOrderQuery = "SELECT COUNT(*) FROM Orders WHERE userId = @userId AND orderId = @orderId";
+
+            using (var cmd = new SqlCommand(checkOrderQuery, conn))
+            {
+                cmd.Parameters.AddWithValue("@userId", userId);
+                cmd.Parameters.AddWithValue("@orderId", orderId);
+
+                int orderCount = (int)cmd.ExecuteScalar();
+
+                if (orderCount == 0)
+                {
+                    throw new OrderNotFoundException("Order not found for the given user.");
+                }
+            }
+
+            // Delete related entries from OrderDetails table
+            string deleteOrderDetailsQuery = "DELETE FROM OrderDetails WHERE orderId = @orderId";
+
+            using (var cmd = new SqlCommand(deleteOrderDetailsQuery, conn))
+            {
+                cmd.Parameters.AddWithValue("@orderId", orderId);
+                cmd.ExecuteNonQuery();
+            }
+
+            // Delete the order from the Orders table
+            string deleteOrderQuery = "DELETE FROM Orders WHERE orderId = @orderId AND userId = @userId";
+
+            using (var cmd = new SqlCommand(deleteOrderQuery, conn))
+            {
+                cmd.Parameters.AddWithValue("@orderId", orderId);
+                cmd.Parameters.AddWithValue("@userId", userId);
+                cmd.ExecuteNonQuery();
+            }
+
             Console.WriteLine("Order canceled successfully.");
         }
-        else
-        {
-            throw new OrderNotFoundException("Order not found for the given user.");
-        }
     }
+
 
     public void CreateProduct(User user, Product product)
     {
@@ -223,13 +254,67 @@ public class OrderProcessor : IOrderManagementRepository
 
     public List<Product> GetOrderByUser(User user)
     {
-        if (orders.ContainsKey(user.UserId))
+        List<Product> orderedProducts = new List<Product>();
+
+        // Check if the user exists in the database
+        using (var conn = DBConnUtil.GetDBConn(_connectionString))
         {
-            return orders[user.UserId];
+            // Check if the user has any orders
+            string userOrderQuery = @"
+            SELECT p.productId, p.productName, p.description, p.price, p.quantityInStock, p.type,
+                   p.brand, p.warrantyPeriod, p.size, p.color, od.quantity
+            FROM Orders o
+            JOIN OrderDetails od ON o.orderId = od.orderId
+            JOIN Products p ON od.productId = p.productId
+            WHERE o.userId = @userId";
+
+            using (var cmd = new SqlCommand(userOrderQuery, conn))
+            {
+                cmd.Parameters.AddWithValue("@userId", user.UserId);
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                        {
+                            string productType = reader["type"].ToString();
+
+                            if (productType.Equals("Electronics", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var electronics = new Electronics(
+                                    reader["productName"].ToString(),
+                                    reader["description"].ToString(),
+                                    Convert.ToDouble(reader["price"]),
+                                    Convert.ToInt32(reader["quantity"]),
+                                    reader["brand"].ToString(),
+                                    Convert.ToInt32(reader["warrantyPeriod"])
+                                );
+                                orderedProducts.Add(electronics);
+                            }
+                            else if (productType.Equals("Clothing", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var clothing = new Clothing(
+                                    reader["productName"].ToString(),
+                                    reader["description"].ToString(),
+                                    Convert.ToDouble(reader["price"]),
+                                    Convert.ToInt32(reader["quantity"]),
+                                    reader["size"].ToString(),
+                                    reader["color"].ToString()
+                                );
+                                orderedProducts.Add(clothing);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        throw new UserNotFoundException("No orders found for the specified user.");
+                    }
+                }
+            }
         }
-        else
-        {
-            throw new UserNotFoundException("User not found.");
-        }
+
+        return orderedProducts;
     }
+
 }

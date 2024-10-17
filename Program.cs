@@ -103,7 +103,11 @@ public class Program
                     break;
 
                 case 4:
-//Cancel logic here
+                    Console.WriteLine("Enter User ID:");
+                    int cancelUserId = Convert.ToInt32(Console.ReadLine());
+                    Console.WriteLine("Enter Order ID:");
+                    int orderId = Convert.ToInt32(Console.ReadLine());
+                    orderProcessor.CancelOrder(cancelUserId, orderId);
                     break;
 
                 case 5:
