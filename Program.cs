@@ -28,20 +28,59 @@ public class Program
                 case 2:
                     Console.WriteLine("Enter Admin User ID:");
                     int adminId = Convert.ToInt32(Console.ReadLine());
-                    User admin = new User(adminId, "Admin", "password", "Admin");
-                    Console.WriteLine("Enter Product ID:");
-                    int productId = Convert.ToInt32(Console.ReadLine());
+
+                    // Assuming the user is retrieved from some user repository
+                    User admin = new User(adminId, "Admin", "password", "Admin"); // Adjust as necessary to get the real admin user
+
                     Console.WriteLine("Enter Product Name:");
                     string productName = Console.ReadLine();
+
                     Console.WriteLine("Enter Description:");
                     string description = Console.ReadLine();
+
                     Console.WriteLine("Enter Price:");
                     double price = Convert.ToDouble(Console.ReadLine());
+
                     Console.WriteLine("Enter Quantity in Stock:");
                     int quantity = Convert.ToInt32(Console.ReadLine());
-                    Product product = new Product(productId, productName, description, price, quantity, "General");
+
+                    // You can create the product as Electronics or Clothing based on type
+                    // For example, let's assume it's Electronics; adjust accordingly
+                    Console.WriteLine("Enter Product Type (Electronics/Clothing):");
+                    string productType = Console.ReadLine();
+
+                    Product product;
+
+                    if (productType.Equals("Electronics", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("Enter Brand:");
+                        string brand = Console.ReadLine();
+
+                        Console.WriteLine("Enter Warranty Period (in months):");
+                        int warrantyPeriod = Convert.ToInt32(Console.ReadLine());
+
+                        product = new Electronics(productName, description, price, quantity, brand, warrantyPeriod);
+                    }
+                    else if (productType.Equals("Clothing", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("Enter Size:");
+                        string size = Console.ReadLine();
+
+                        Console.WriteLine("Enter Color:");
+                        string color = Console.ReadLine();
+
+                        product = new Clothing(productName, description, price, quantity, size, color);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid product type entered.");
+                        break;
+                    }
+
+                    // Call CreateProduct method
                     orderProcessor.CreateProduct(admin, product);
                     break;
+
                 case 3:
                     // Cancel order logic
                     break;
