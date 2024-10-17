@@ -107,7 +107,7 @@ public class OrderProcessor : IOrderManagementRepository
             // Delete the order from the Orders table
             string deleteOrderQuery = "DELETE FROM Orders WHERE orderId = @orderId AND userId = @userId";
 
-            using (var cmd = new SqlCommand(deleteOrderQuery, conn))
+            using (var cmd = new SqlCommand(deleteOrderQuery, conn)) 
             {
                 cmd.Parameters.AddWithValue("@orderId", orderId);
                 cmd.Parameters.AddWithValue("@userId", userId);
@@ -121,7 +121,9 @@ public class OrderProcessor : IOrderManagementRepository
 
     public void CreateProduct(User user, Product product)
     {
-        if (user.Role != "Admin")
+        //Console.WriteLine("User role is: " + user.Role);  
+
+        if (user.Role!="Admin")
         {
             throw new UnauthorizedAccessException("Only admin users can add products.");
         }
@@ -139,25 +141,22 @@ public class OrderProcessor : IOrderManagementRepository
                 cmd.Parameters.AddWithValue("@QuantityInStock", product.QuantityInStock);
                 cmd.Parameters.AddWithValue("@Type", product.Type);
 
-                // Electronics specific fields
                 if (product is Electronics electronics)
                 {
                     cmd.Parameters.AddWithValue("@Brand", electronics.Brand);
                     cmd.Parameters.AddWithValue("@WarrantyPeriod", electronics.WarrantyPeriod);
-                    cmd.Parameters.AddWithValue("@Size", DBNull.Value); // Set to null since not applicable
-                    cmd.Parameters.AddWithValue("@Color", DBNull.Value); // Set to null since not applicable
+                    cmd.Parameters.AddWithValue("@Size", DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Color", DBNull.Value);
                 }
-                // Clothing specific fields
                 else if (product is Clothing clothing)
                 {
-                    cmd.Parameters.AddWithValue("@Brand", DBNull.Value); // Set to null since not applicable
-                    cmd.Parameters.AddWithValue("@WarrantyPeriod", DBNull.Value); // Set to null since not applicable
+                    cmd.Parameters.AddWithValue("@Brand", DBNull.Value);
+                    cmd.Parameters.AddWithValue("@WarrantyPeriod", DBNull.Value);
                     cmd.Parameters.AddWithValue("@Size", clothing.Size);
                     cmd.Parameters.AddWithValue("@Color", clothing.Color);
                 }
                 else
                 {
-                    // If the product is neither Electronics nor Clothing, throw an error
                     throw new ArgumentException("Invalid product type.");
                 }
 
@@ -171,7 +170,6 @@ public class OrderProcessor : IOrderManagementRepository
     {
         using (SqlConnection conn = DBConnUtil.GetDBConn(_connectionString))
         {
-            // Check if the username already exists
             string checkUserQuery = "SELECT COUNT(*) FROM Users WHERE username = @Username";
             using (SqlCommand checkUserCmd = new SqlCommand(checkUserQuery, conn))
             {
@@ -184,7 +182,6 @@ public class OrderProcessor : IOrderManagementRepository
                 }
             }
 
-            // Insert the new user
             string query = "INSERT INTO Users (username, password, role) VALUES (@Username, @Password, @Role)";
             using (SqlCommand cmd = new SqlCommand(query, conn))
             {
@@ -212,34 +209,30 @@ public class OrderProcessor : IOrderManagementRepository
                 {
                     while (reader.Read())
                     {
-                        // Read the productId for reference, but it's not needed for the constructor
-                        int productId = reader.GetInt32(0); // Index 0
-                        string productName = reader.GetString(1); // Index 1
-                        string description = reader.IsDBNull(2) ? null : reader.GetString(2); // Index 2
-                        double price = reader.GetDouble(3); // Index 3
-                        int quantityInStock = reader.GetInt32(4); // Index 4
-                        string type = reader.GetString(5); // Index 5
-
-                        // Create the product based on its type
+                        int productId = reader.GetInt32(0); 
+                        string productName = reader.GetString(1);
+                        string description = reader.IsDBNull(2) ? null : reader.GetString(2); 
+                        double price = reader.GetDouble(3); 
+                        int quantityInStock = reader.GetInt32(4);
+                        string type = reader.GetString(5); 
                         Product product;
 
                         if (type.Equals("Electronics", StringComparison.OrdinalIgnoreCase))
                         {
-                            string brand = reader.IsDBNull(6) ? null : reader.GetString(6); // Index 6
-                            int? warrantyPeriod = reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7); // Index 7
+                            string brand = reader.IsDBNull(6) ? null : reader.GetString(6); 
+                            int? warrantyPeriod = reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7);
                             product = new Electronics(productName, description, price, quantityInStock, brand, warrantyPeriod ?? 0);
-                            product.ProductId = productId; // Set ProductId after creation
+                            product.ProductId = productId; 
                         }
                         else if (type.Equals("Clothing", StringComparison.OrdinalIgnoreCase))
                         {
-                            string size = reader.IsDBNull(8) ? null : reader.GetString(8); // Index 8
-                            string color = reader.IsDBNull(9) ? null : reader.GetString(9); // Index 9
+                            string size = reader.IsDBNull(8) ? null : reader.GetString(8); 
+                            string color = reader.IsDBNull(9) ? null : reader.GetString(9);
                             product = new Clothing(productName, description, price, quantityInStock, size, color);
-                            product.ProductId = productId; // Set ProductId after creation
+                            product.ProductId = productId; 
                         }
                         else
                         {
-                            // Skip products that do not match the expected types
                             continue;
                         }
 
@@ -255,11 +248,8 @@ public class OrderProcessor : IOrderManagementRepository
     public List<Product> GetOrderByUser(User user)
     {
         List<Product> orderedProducts = new List<Product>();
-
-        // Check if the user exists in the database
         using (var conn = DBConnUtil.GetDBConn(_connectionString))
         {
-            // Check if the user has any orders
             string userOrderQuery = @"
             SELECT p.productId, p.productName, p.description, p.price, p.quantityInStock, p.type,
                    p.brand, p.warrantyPeriod, p.size, p.color, od.quantity

@@ -1,4 +1,8 @@
-﻿using YourNamespace.util;
+﻿using Microsoft.Data.SqlClient;
+namespace YourNamespace.util;
+using System;
+using System.Collections.Generic;
+
 public class Program
 {
     static void Main(string[] args)
@@ -29,7 +33,22 @@ public class Program
                 case 2:
                     Console.WriteLine("Enter Admin User ID:");
                     int adminId = Convert.ToInt32(Console.ReadLine());
-                    User admin = new User(adminId, "Admin", "password", "Admin"); 
+                    User admin;
+                    try
+                    {
+                        admin = GetUserById(adminId);
+                        if (admin.Role.ToLower() != "admin")
+                        {
+                            Console.WriteLine("User is not an admin.");
+                            break;
+                        }
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        break;
+                    }
+
                     Console.WriteLine("Enter Product Name:");
                     string productName = Console.ReadLine();
                     Console.WriteLine("Enter Description:");
@@ -63,6 +82,7 @@ public class Program
                         Console.WriteLine("Invalid product type entered.");
                         break;
                     }
+
                     orderProcessor.CreateProduct(admin, product);
                     break;
 
@@ -136,6 +156,35 @@ public class Program
                 default:
                     Console.WriteLine("Invalid choice");
                     break;
+            }
+        }
+    }
+
+    public static User GetUserById(int userId)
+    {
+        using (SqlConnection conn = DBConnUtil.GetDBConn("dbProperties.txt"))
+        {
+            string query = "SELECT UserId, Username, Password, Role FROM Users WHERE UserId = @UserId";
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                cmd.Parameters.AddWithValue("@UserId", userId);
+
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        int id = reader.GetInt32(0);
+                        string username = reader.GetString(1);
+                        string password = reader.GetString(2);
+                        string role = reader.GetString(3);
+
+                        return new User(id, username, password, role);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("User not found.");
+                    }
+                }
             }
         }
     }
