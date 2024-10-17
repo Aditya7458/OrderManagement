@@ -20,20 +20,58 @@ public class OrderProcessor : IOrderManagementRepository
     private List<Product> products = new List<Product>();
     private Dictionary<int, List<Product>> orders = new Dictionary<int, List<Product>>();
     private string _connectionString = DBPropertyUtil.GetConnectionString("dbProperties.txt");
+
     public void CreateOrder(User user, List<Product> productsToOrder)
     {
-        if (users.Any(u => u.UserId == user.UserId))
+        
+        bool userExists = false;
+        using (var conn = DBConnUtil.GetDBConn(_connectionString))
         {
-            if (!orders.ContainsKey(user.UserId))
+            string userCheckQuery = "SELECT COUNT(*) FROM Users WHERE userId = @userId;";
+
+            using (var cmd = new SqlCommand(userCheckQuery, conn))
             {
-                orders[user.UserId] = new List<Product>();
+                cmd.Parameters.AddWithValue("@userId", user.UserId);
+                userExists = (int)cmd.ExecuteScalar() > 0;
             }
-            orders[user.UserId].AddRange(productsToOrder);
-            Console.WriteLine($"Order created for user {user.Username}");
+        }
+
+        if (userExists)
+        {
+            int newOrderId;
+            using (var conn = DBConnUtil.GetDBConn(_connectionString))
+            {
+                string insertOrderQuery = "INSERT INTO Orders (userId) OUTPUT INSERTED.orderId VALUES (@userId);";
+
+                using (var cmd = new SqlCommand(insertOrderQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@userId", user.UserId);
+                    newOrderId = (int)cmd.ExecuteScalar(); 
+                }
+            }
+
+            foreach (var product in productsToOrder)
+            {
+                using (var conn = DBConnUtil.GetDBConn(_connectionString))
+                {
+                    string insertOrderDetailQuery = "INSERT INTO OrderDetails (orderId, productId, quantity) VALUES (@orderId, @productId, @quantity);";
+
+                    using (var cmd = new SqlCommand(insertOrderDetailQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@orderId", newOrderId);
+                        cmd.Parameters.AddWithValue("@productId", product.ProductId); 
+                        cmd.Parameters.AddWithValue("@quantity", product.QuantityInStock);
+
+                        cmd.ExecuteNonQuery(); 
+                    }
+                }
+            }
+
+            Console.WriteLine($"Order created for user {user.Username} with Order ID: {newOrderId}");
         }
         else
         {
-            Console.WriteLine("User not found. Please create the user first.");
+            Console.WriteLine("User not found in the database. Please create the user first.");
         }
     }
 
@@ -131,7 +169,56 @@ public class OrderProcessor : IOrderManagementRepository
 
     public List<Product> GetAllProducts()
     {
-        return products;
+        var productList = new List<Product>();
+
+        using (var conn = DBConnUtil.GetDBConn(_connectionString))
+        {
+            string query = "SELECT productId, productName, description, price, quantityInStock, type, brand, warrantyPeriod, size, color FROM Products;";
+
+            using (var cmd = new SqlCommand(query, conn))
+            {
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        // Read the productId for reference, but it's not needed for the constructor
+                        int productId = reader.GetInt32(0); // Index 0
+                        string productName = reader.GetString(1); // Index 1
+                        string description = reader.IsDBNull(2) ? null : reader.GetString(2); // Index 2
+                        double price = reader.GetDouble(3); // Index 3
+                        int quantityInStock = reader.GetInt32(4); // Index 4
+                        string type = reader.GetString(5); // Index 5
+
+                        // Create the product based on its type
+                        Product product;
+
+                        if (type.Equals("Electronics", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string brand = reader.IsDBNull(6) ? null : reader.GetString(6); // Index 6
+                            int? warrantyPeriod = reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7); // Index 7
+                            product = new Electronics(productName, description, price, quantityInStock, brand, warrantyPeriod ?? 0);
+                            product.ProductId = productId; // Set ProductId after creation
+                        }
+                        else if (type.Equals("Clothing", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string size = reader.IsDBNull(8) ? null : reader.GetString(8); // Index 8
+                            string color = reader.IsDBNull(9) ? null : reader.GetString(9); // Index 9
+                            product = new Clothing(productName, description, price, quantityInStock, size, color);
+                            product.ProductId = productId; // Set ProductId after creation
+                        }
+                        else
+                        {
+                            // Skip products that do not match the expected types
+                            continue;
+                        }
+
+                        productList.Add(product);
+                    }
+                }
+            }
+        }
+
+        return productList;
     }
 
     public List<Product> GetOrderByUser(User user)

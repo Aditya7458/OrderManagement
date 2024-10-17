@@ -1,14 +1,13 @@
-// Base class Product
+
 public class Product
 {
-    public int ProductId { get; set; } // This can remain optional when inserting
+    public int ProductId { get; set; } 
     public string ProductName { get; set; }
     public string Description { get; set; }
     public double Price { get; set; }
     public int QuantityInStock { get; set; }
-    public string Type { get; set; } // Electronics or Clothing
+    public string Type { get; set; } 
 
-    // Constructor is no longer necessary for DB insertion, you can use setters instead
     public Product(string productName, string description, double price, int quantityInStock, string type)
     {
         ProductName = productName;
@@ -19,7 +18,7 @@ public class Product
     }
 }
 
-// Subclass Electronics
+
 public class Electronics : Product
 {
     public string Brand { get; set; }
@@ -33,7 +32,7 @@ public class Electronics : Product
     }
 }
 
-// Subclass Clothing
+
 public class Clothing : Product
 {
     public string Size { get; set; }
